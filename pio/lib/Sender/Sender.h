@@ -21,6 +21,7 @@ public:
   bool sendThingSpeak(String token, long Channel);
   bool sendGenericPost(String server, String uri, uint16_t port = 80);
   bool sendInfluxDB(String server, uint16_t port, String db, String name, String username, String password);
+  bool sendInfluxDBv2(String server, uint16_t port, String bucket, String name, String org, String token);
   bool sendPrometheus(String server, uint16_t port, String job, String instance);
   bool sendUbidots(String token, String name);
   bool sendMQTT(String server, uint16_t port, String username, String password, String name);
@@ -41,6 +42,8 @@ private:
   WiFiClient _client;
   PubSubClient _mqttClient;
   StaticJsonDocument<1024> _doc;
+
+  String buildInfluxDataString(String name);
 };
 
 #endif

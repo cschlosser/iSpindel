@@ -27,6 +27,7 @@ extern Ticker flasher;
 #define API_GENERIC true
 #define API_TCONTROL true
 #define API_INFLUXDB true
+#define API_INFLUXDBv2 true
 #define API_PROMETHEUS true
 #define API_MQTT true
 #define API_THINGSPEAK true
@@ -97,6 +98,7 @@ extern Ticker flasher;
 #define DTTHINGSPEAK 11
 #define DTBLYNK 12
 #define DTBREWBLOX 13
+#define DTInfluxDBv2 14
 
 // Number of seconds after reset during which a
 // subseqent reset will be considered a double reset.

@@ -66,7 +66,7 @@ float ypr[3];        // [yaw, pitch, roll]   yaw/pitch/roll container and gravit
 
 bool shouldSaveConfig = false;
 
-char my_token[TKIDSIZE * 2];
+char my_token[TKIDSIZE * 3];
 char my_name[TKIDSIZE] = "iSpindel000";
 char my_server[DNSSIZE];
 char my_uri[DNSSIZE];
@@ -340,7 +340,7 @@ bool startConfiguration()
   WiFiManagerParameter custom_sleep("sleep", "Update Interval (s)",
                                     String(my_sleeptime).c_str(), 6, TYPE_NUMBER);
   WiFiManagerParameter custom_token("token", "Token", htmlencode(my_token).c_str(),
-                                    TKIDSIZE * 2);
+                                    TKIDSIZE * 3);
   WiFiManagerParameter custom_server("server", "Server Address",
                                      my_server, DNSSIZE);
   WiFiManagerParameter custom_port("port", "Server Port",
@@ -602,6 +602,21 @@ bool uploadData(uint8_t service)
     CONSOLELN(F("\ncalling InfluxDB"));
     CONSOLELN(String(F("Sending to db: ")) + my_db + String(F(" w/ credentials: ")) + my_username + String(F(":")) + my_password);
     return sender.sendInfluxDB(my_server, my_port, my_db, my_name, my_username, my_password);
+  }
+#endif
+
+#ifdef API_INFLUXDBv2
+  if (service == DTInfluxDBv2)
+  {
+    sender.add("tilt", Tilt);
+    sender.add("temperature", scaleTemperature(Temperatur));
+    sender.add("temp_units", tempScaleLabel());
+    sender.add("battery", Volt);
+    sender.add("gravity", Gravity);
+    sender.add("interval", my_sleeptime);
+    sender.add("RSSI", WiFi.RSSI());
+    CONSOLELN(F("\ncalling InfluxDBv2"));
+    return sender.sendInfluxDBv2(my_server, my_port, my_db, my_name, my_uri, my_token);
   }
 #endif
 
