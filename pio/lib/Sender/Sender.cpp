@@ -11,6 +11,8 @@
 #include <ThingSpeak.h>
 #include <BlynkSimpleEsp8266.h> //https://github.com/blynkkk/blynk-library
 
+#include <StreamString.h>
+
 #define UBISERVER "things.ubidots.com"
 #define BLYNKSERVER "blynk-cloud.com"
 #define CONNTIMEOUT 2000
@@ -245,26 +247,8 @@ bool SenderClass::sendGenericPost(String server, String uri, uint16_t port)
     return true;
 }
 
-bool SenderClass::sendInfluxDB(String server, uint16_t port, String db, String name, String username, String password)
+String SenderClass::buildInfluxDataString(String name)
 {
-    HTTPClient http;
-
-    String uri = "/write?db=";
-    uri += db;
-
-    CONSOLELN(String(F("INFLUXDB: posting to db: ")) + uri);
-    // configure traged server and uri
-    http.begin(_client, server, port, uri);
-
-    if (username.length() > 0)
-    {
-        http.setAuthorization(username.c_str(), password.c_str());
-    }
-
-    http.addHeader("User-Agent", "iSpindel");
-    http.addHeader("Connection", "close");
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-
     String msg;
     msg += "measurements,source=";
     msg += name;
@@ -287,6 +271,31 @@ bool SenderClass::sendInfluxDB(String server, uint16_t port, String db, String n
     }
     msg.remove(msg.length() - 1);
 
+    return msg;
+}
+
+bool SenderClass::sendInfluxDB(String server, uint16_t port, String db, String name, String username, String password)
+{
+    HTTPClient http;
+
+    String uri = "/write?db=";
+    uri += db;
+
+    CONSOLELN(String(F("INFLUXDB: posting to db: ")) + uri);
+    // configure traged server and uri
+    http.begin(_client, server, port, uri);
+
+    if (username.length() > 0)
+    {
+        http.setAuthorization(username.c_str(), password.c_str());
+    }
+
+    http.addHeader("User-Agent", "iSpindel");
+    http.addHeader("Connection", "close");
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    String msg = buildInfluxDataString(name);
+
     CONSOLELN(String(F("POST data: ")) + msg);
 
     auto httpCode = http.POST(msg);
@@ -307,6 +316,119 @@ bool SenderClass::sendInfluxDB(String server, uint16_t port, String db, String n
     }
 
     http.end();
+    stopclient();
+    return true;
+}
+bool SenderClass::sendInfluxDBv2(String server, uint16_t port, String bucket, String name, String org, String token)
+{
+    // 0 is a reserved port. we can use it to determine if we should use a port at all
+    String url =
+        //(port == 0 ? server : server + ":" + port) +
+        "/api/v2/write?org=" + org + // this could lead to problems with url encoding
+        "&bucket=" + bucket;
+
+    String host = server;
+    host.remove(0, host.lastIndexOf('/') + 1);
+    CONSOLELN(String("Host: '") + host + "'");
+    CONSOLELN(String("connect:") + _client.connect(host, port));
+    CONSOLELN(String("_client.println(String(POST ") + _client.println(String("POST ") + url + " HTTP/1.1"));
+    CONSOLELN(String("_client.println(String(Host") + _client.println(String("Host: ") + host));
+    CONSOLELN(String("_client.println(String(User-Agent") + _client.println(String("User-Agent: ") + name));
+    CONSOLELN(String("connection") + _client.println("Connection: close"));
+    CONSOLELN(String("_client.println(F(Accept: */*));") + _client.println(F("Accept: */*")));
+    CONSOLELN(String("_client.println(F(Content-Type: ));") + _client.println(F("Content-Type: application/x-www-form-urlencoded")));
+    CONSOLELN(String("_client.println(F(Token") + _client.println(String("Authorization: Token ") + token));
+    String payload = buildInfluxDataString(name);
+    CONSOLELN(String("_client.println(Content-Length));") + _client.println(String("Content-Length: " + payload.length())));
+    CONSOLELN(String("_client.println();") + _client.println());
+    CONSOLELN(String("_client.println(payload);") + _client.println(payload));
+    delay(100);
+    auto ret = _client.readString();
+    CONSOLELN(String("returned: '") + ret + "'");
+
+#if 0
+    CONSOLE(F("[InfluxDBv2] URL: "));
+    CONSOLELN(url);
+    CONSOLELN("token: '" + token + "'");
+
+    HTTPClient http;
+
+    if(http.begin(_client, url)) {
+    http.addHeader(F("Authorization"), "Token " + token);
+    http.addHeader(F("Content-Type"), F("text/plain"));
+    
+    String host = server;
+    host.remove(0, host.lastIndexOf('/') + 1);
+    CONSOLELN("Host: '" + host + "'");
+    http.addHeader(F("Host"), host);
+
+    String payload = buildInfluxDataString(name);
+
+#if 0
+        p.addTag("device", name);
+
+        CONSOLE(F("[InfluxDBv2] Sending data: "));
+        CONSOLELN(p.toLineProtocol());
+        if(client.writePoint(p)) {
+            CONSOLELN(F("[InfluxDBv2] sent"));
+        } else {
+            CONSOLE(F("[InfluxDBv2] failed with "));
+            CONSOLE(String(F("code: ")) + client.getLastStatusCode());
+            CONSOLELN(String(F(" msg: ")) + client.getLastErrorMessage());
+        }
+
+    if(client.validateConnection()) {
+        CONSOLE(F("[InfluxDBv2] Connected to "));
+        CONSOLELN(client.getServerUrl());
+        /*Point p("measurement");
+
+        p.addTag("device", name);
+        for (const auto &kv : _doc.as<JsonObject>())
+        {
+            p.addField(kv.key().c_str(), kv.value().as<String>());
+        }
+
+        CONSOLE(F("[InfluxDBv2] Sending data: "));
+        CONSOLELN(p.toLineProtocol());
+        if(client.writePoint(p)) {
+            CONSOLELN(F("[InfluxDBv2] sent"));
+        } else {
+            CONSOLE(F("[InfluxDBv2] failed with "));
+            CONSOLE(String(F("code: ")) + client.getLastStatusCode());
+            CONSOLELN(String(F(" msg: ")) + client.getLastErrorMessage());
+        }*/
+    } else {
+        CONSOLE(F("[InfluxDBv2] Could not connect to"));
+        CONSOLE(String(F(" url: ")) + url);
+        CONSOLE(String(F(" org: ")) + org);
+        CONSOLE(String(F(" bucket: ")) + bucket);
+        CONSOLE(String(F(" token: ")) + token);
+        CONSOLE(String(F(" code: ")) + client.getLastStatusCode());
+        CONSOLELN(String(F(" msg: ")) + client.getLastErrorMessage());
+    }
+    #endif
+
+    CONSOLE(F("[InfluxDBv2] Sending data: "));
+    CONSOLELN(payload);
+
+    const int httpCode = http.POST((uint8_t*)payload.c_str(), payload.length());
+    StreamString ss;
+
+    http.writeToStream(&ss);
+
+
+    CONSOLE(F("[InfluxDBv2] http stream '"));
+    CONSOLE(ss.c_str());
+    CONSOLELN(F("'"));
+
+    CONSOLE(F("[InfluxDBv2] POST returned: "));
+    CONSOLELN(httpCode);
+    } else {
+        CONSOLE(F("[InfluxDBv2] HTTP.begin failed"));
+    }
+
+    http.end();
+#endif
     stopclient();
     return true;
 }
